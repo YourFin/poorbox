@@ -2,36 +2,16 @@ package tmdb
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	//"log"
 	"net/url"
-	"time"
 	"regexp"
 	"strings"
+	"time"
+	"strconv"
+
+	pdb "github.com/yourfin/poorbox/poorboxdb"
 )
-
-//type Genre struct {
-//	TmdbId int
-//	Name   string
-//}
-
-// This is meant as a temporary data structure,
-// and should really just be an intermediary to
-// postgress
-//type Movie struct {
-//TmdbId int
-//ImdbId string
-//Genres []Genre
-//TmdbPosterPath string
-//TmdbBackgroundPath string
-//Slug string //Short name
-//Title string
-//Runtime int
-//ReleaseYear int
-//Description string
-//}
 
 type searchResponseMovie struct {
 	Title       string
@@ -40,7 +20,7 @@ type searchResponseMovie struct {
 	Id          int
 }
 type mSearchResponse struct {
-	Results      []SearchResponseMovie
+	Results      []searchResponseMovie
 	TotalResults int `json:"total_results"`
 }
 
@@ -49,23 +29,49 @@ type mSearchResponse struct {
 // need to have multiple instances of the api
 // up
 var (
-	apiKey string
-	client *http.Client
-	regexParens  regexp.Regexp
-	regexYearEOL regexp.Regexp
+	apiKey       string
+	client       *http.Client
+	regexParens  *regexp.Regexp
+	regexYearEOL *regexp.Regexp
 )
 
-
-func Init(ApiKey string) {
+func ApiInit(ApiKey string) {
 	apiKey = ApiKey
-	client = &http.Client {
-		Timeout: time.Second * 60
+	client = &http.Client{
+		Timeout: time.Second * 60,
 	}
-	regexParens  = regexp.MustCompile("[()]")
+	regexParens = regexp.MustCompile("[()]")
 	regexYearEOL = regexp.MustCompile("\\d{4}$")
+}
+func maybeInit() {
+	if client == nil {
+		panic("uninitialized api")
+	}
+}
+
+func searchResponseMovieToMovie(in searchResponseMovie) pdb.Movie {
+	maybeInit()
+	url := "https://api.themoviedb.org/3/movie/"
+	url += strconv.Itoa(in.Id) + "?api_key=" + apiKey + "&language=en-US"
+	body, err := tmdbAPIHit(url)
+	if err != nil {
+		panic("could not find movie with id" + strconv.Itoa(in.Id))
+	}
+	var out pdb.Movie
+	err = json.Unmarshal(body, &out)
+	out.Description = in.Overview
+	if len(in.ReleaseDate) >= 4 {
+		out.ReleaseYear, _ = strconv.Atoi(in.ReleaseDate[:4])
+	}
+	err = out.GiveSlug(false)
+	if err != nil {
+		panic("Slug somehow got parsed")
+	}
+	return out
 }
 
 func tmdbAPIHit(url string) ([]byte, error) {
+	maybeInit()
 	response, err := client.Get(url)
 	if err != nil {
 		return make([]byte, 0), err
@@ -78,7 +84,8 @@ func tmdbAPIHit(url string) ([]byte, error) {
 // Search for a movie on tmdb.
 // Does a little bit of cleanup on movie
 // names before running them into the api.
-func movieSearch(rawMovieName, apiKey string, client *http.Client) (results []searchResponseMovie, err error) {
+func movieSearch(rawMovieName string) (results []searchResponseMovie, err error) {
+	maybeInit()
 	// In its current iteration, this doesn't specifically attack the (2001)
 	// at the end of file names, instead stripping parens and then dumping
 	// anything that looks like a movie at the end of a string.
@@ -94,7 +101,7 @@ func movieSearch(rawMovieName, apiKey string, client *http.Client) (results []se
 	cleanMoviename = url.QueryEscape(cleanMoviename)
 	url := "https://api.themoviedb.org/3/search/movie?include_adult=false&page=1&query="
 	url += cleanMoviename + "&language=en-US&api_key=" + apiKey
-	body, err := tmdbAPIHit(url, client)
+	body, err := tmdbAPIHit(url)
 	if err != nil {
 		return
 	}

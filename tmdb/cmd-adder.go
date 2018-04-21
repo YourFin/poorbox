@@ -1,5 +1,14 @@
 package tmdb
 
+import (
+	"errors"
+	"fmt"
+	"strings"
+	"path/filepath"
+
+	pdb "github.com/yourfin/poorbox/poorboxdb"
+)
+
 func AddDir(path string, ignoreDotfiles bool) {
 	files, _ := filepath.Glob(path)
 	for _, f := range files {
@@ -25,7 +34,7 @@ func getUserQuery() string {
 	var query string
 	fmt.Println("Please enter a new query:\n")
 	fmt.Scanln(&query)
-	return query[:len(query) - 1]
+	return query[:len(query)-1]
 }
 
 func userConfirmf(format string, a ...interface{}) bool {
@@ -53,10 +62,25 @@ func userConfirmf(format string, a ...interface{}) bool {
 	}
 }
 
-func CmdMovieSearch(query string) {
+// Helps the user through finding the movie matching $query.
+// query will usually be passed as a movie file filename with
+// the extension stripped off, but any string should work
+func CmdMovieSearch(query string) (pdb.Movie, error) {
+	originalQuery := query
 	for {
 		fmt.Printf("Finding results for %q...\n", query)
 		queryResults, err := movieSearch(query)
+		if err != nil {
+			if userConfirmf(
+				"Error: %q;\nEnter new query for %q?",
+				err,
+				originalQuery) {
+					query = getUserQuery()
+					continue
+				} else {
+					return pdb.Movie{}, err
+				}
+		}
 		switch len(queryResults) {
 		case 0:
 			fmt.Println("No result found for", query)
@@ -67,17 +91,19 @@ func CmdMovieSearch(query string) {
 			} else if userConfirmf("Enter new query?") {
 				query = getUserQuery()
 			} else {
-				// error out
+				return pdb.Movie{}, errors.New("User declined only movie result")
 			}
 		default:
 			for index, value := range queryResults {
-				fmt.Printf("%d: %q\n", index + 1, value)
+				fmt.Printf("%d: %q\n", index+1, value)
 			}
 			fmt.Println("0: Different query")
 			fmt.Println("-1: Abort this file")
+
 			//User input loop
-			err := errors.New("No error found, but err not set to nil")
 			var choice int
+			// To make the for loop below work
+			err := errors.New("No error found, but err not set to nil")
 			for err != nil {
 				fmt.Println("\nEnter a number: ")
 				_, err := fmt.Scanf("%d", &choice)
@@ -89,11 +115,10 @@ func CmdMovieSearch(query string) {
 					query = getUserQuery()
 					break // breaks for loop
 				case choice >= 0 && choice < len(queryResults):
-					//return queryresults[choice]
-					return
+					return searchResponseMovieToMovie(queryResults[choice]), nil
 				default:
 					// abort and error out
-					return
+					return pdb.Movie{}, nil
 				}
 			}
 		}
