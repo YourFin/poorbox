@@ -23,7 +23,7 @@ import (
 	"log"
 
 	"github.com/spf13/cobra"
-	"github.com/yourfin/poorbox-public/poorboxdb"
+	"github.com/yourfin/poorbox/poorboxdb"
 )
 
 // rootCmd represents the base command when called without any subcommands
