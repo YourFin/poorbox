@@ -14,7 +14,7 @@
 
 package main
 
-import "github.com/yourfin/poorbox/cmd"
+import "github.com/yourfin/poorbox-public/cmd"
 
 func main() {
 	cmd.Execute()
