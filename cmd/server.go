@@ -16,7 +16,7 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	//	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -37,12 +37,6 @@ pages or any video files involved in poorbox; apache handles
 those, which must be started seperatly.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("server called")
-		err := parsePgSecrets()
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(pgUsername)
-		fmt.Println(pgPassword)
 	},
 	Args: cobra.NoArgs,
 }

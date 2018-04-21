@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"strings"
 	"errors"
+	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -39,9 +40,12 @@ An internet connection is also required to grab information from themoviedb.org.
 
 See README.md for more details. Happy streaming :)
 `,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			pgInit()
+		},
 	}
 )
-var pgUsername, pgPassword, pgIdFilePath, pgEndpoint string
+var pgIdFilePath, pgEndpoint string
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -71,7 +75,7 @@ func init() {
 seperated by a newline`)
 }
 
-func parsePgSecrets() (err error) {
+func parsePgSecrets() (password string, username string, err error) {
 	file, err := os.Open(pgIdFilePath)
 	if err != nil {
 		return
@@ -80,14 +84,23 @@ func parsePgSecrets() (err error) {
 
 	scanner := bufio.NewScanner(file)
 	scanner.Scan()
-	pgUsername = strings.TrimSpace(scanner.Text())
+	username = strings.TrimSpace(scanner.Text())
 	scanned := scanner.Scan()
-	pgPassword = strings.TrimSpace(scanner.Text())
+	password = strings.TrimSpace(scanner.Text())
 	if err = scanner.Err() ; err != nil {
 		return
 	}
 	if !scanned {
-		return errors.New("pg secrets file improperly formatted")
+		return username, password, errors.New("pg secrets file improperly formatted")
 	}
 	return
+}
+
+
+func pgInit() {
+	username, password, err := parsePgSecrets()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(username, password)
 }
