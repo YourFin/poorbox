@@ -16,6 +16,9 @@ package main
 
 import "github.com/yourfin/poorbox/cmd"
 
+// Poorbox uses cobra to simplify the command line
+// utility building process, so processes really start
+// in cmd/root.go
 func main() {
 	cmd.Execute()
 }
