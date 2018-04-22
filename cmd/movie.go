@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/yourfin/poorbox/tmdb"
 	"github.com/spf13/cobra"
@@ -28,7 +29,11 @@ var movieCmd = &cobra.Command{
 	Long: `Adds movies to the database given their file names,
 and moves them to the appropriate location in the filesystem`,
 	Run: func(cmd *cobra.Command, args []string) {
-		tmdb.ApiInit("")
+		apiKey, err := parseTmdbApiSecret()
+		if err != nil {
+			log.Fatal(err)
+		}
+		tmdb.ApiInit(apiKey)
 		for _, name := range args {
 			movie, _ := tmdb.CmdMovieSearch(name)
 			fmt.Printf("%+v\n", movie)
@@ -40,10 +45,12 @@ func init() {
 	addCmd.AddCommand(movieCmd)
 
 	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// movieCmd.PersistentFlags().String("foo", "", "A help for foo")
+	movieCmd.Flags().StringVarP(
+		&tmdbApiKey,
+		"api-key",
+		"a",
+		"./tmdb-secret",
+		`Path to the file containing a tmdb api key`)
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:

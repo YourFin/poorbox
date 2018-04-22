@@ -47,6 +47,7 @@ See README.md for more details. Happy streaming :)
 	}
 
 	pgIdFilePath, pgEndpoint string
+	tmdbApiKey string
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -77,27 +78,43 @@ func init() {
 seperated by a newline`)
 }
 
-func parsePgSecrets() (password string, username string, err error) {
-	file, err := os.Open(pgIdFilePath)
+func parseSecretsFile(filepath string, lines int) (results []string, err error) {
+	file, err := os.Open(filepath)
+	defer file.Close()
 	if err != nil {
 		return
 	}
-	defer file.Close()
-
 	scanner := bufio.NewScanner(file)
-	scanner.Scan()
-	username = strings.TrimSpace(scanner.Text())
-	scanned := scanner.Scan()
-	password = strings.TrimSpace(scanner.Text())
-	if err = scanner.Err() ; err != nil {
-		return
+	scanned := true
+	for ii := 0; scanned && ii < lines; ii++ {
+		scanner.Scan()
+		results = append(results, strings.TrimSpace(scanner.Text()))
 	}
 	if !scanned {
-		return username, password, errors.New("pg secrets file improperly formatted")
+		errorNotice := "Didn't parse enough lines from secret file: %v"
+		return make([]string, 0), errors.New(fmt.Sprintf(errorNotice, filepath))
 	}
 	return
 }
 
+func parsePgSecrets() (password string, username string, err error) {
+	parsed, err := parseSecretsFile(pgIdFilePath, 2)
+	if err != nil {
+		return
+	}
+	username = parsed[0]
+	password = parsed[1]
+	return
+}
+
+func parseTmdbApiSecret() (apiKey string, err error) {
+	parsed, err := parseSecretsFile(tmdbApiKey, 1)
+	if err != nil {
+		return
+	}
+	apiKey = parsed[0]
+	return
+}
 
 func pgInit() {
 	username, password, err := parsePgSecrets()
