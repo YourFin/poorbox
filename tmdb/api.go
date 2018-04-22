@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
 
 	pdb "github.com/yourfin/poorbox/poorboxdb"
 )
@@ -69,7 +69,10 @@ func searchResponseMovieToMovie(in searchResponseMovie) pdb.Movie {
 	url += strconv.Itoa(in.Id) + "?api_key=" + apiKey + "&language=en-US"
 	body, err := tmdbAPIHit(url)
 	if err != nil {
-		panic("could not find movie with id" + strconv.Itoa(in.Id))
+		panic("Could not find movie with id" + strconv.Itoa(in.Id) + "\n" +
+			`This means that there was either a problem connecting to tmdb,
+(invalid api key, internet down, etc.), or that an invalid movie id
+somehow appear somewhere it shouldn't have. The latter is not good.`)
 	}
 	var out pdb.Movie
 	err = json.Unmarshal(body, &out)
