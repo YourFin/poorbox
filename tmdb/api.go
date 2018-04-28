@@ -57,6 +57,7 @@ func ApiInit(ApiKey string) {
 	regexParens = regexp.MustCompile("[()]")
 	regexYearEOL = regexp.MustCompile("\\d{4}$")
 }
+
 func maybeInit() {
 	if client == nil {
 		panic("uninitialized api")
