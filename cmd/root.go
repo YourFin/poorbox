@@ -20,10 +20,9 @@ import (
 	"bufio"
 	"strings"
 	"errors"
-	"log"
 
 	"github.com/spf13/cobra"
-	"github.com/yourfin/poorbox/poorboxdb"
+	pdb "github.com/yourfin/poorbox/poorboxdb"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -42,7 +41,6 @@ An internet connection is also required to grab information from themoviedb.org.
 See README.md for more details. Happy streaming :)
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			pgInit()
 		},
 	}
 
@@ -116,10 +114,14 @@ func parseTmdbApiSecret() (apiKey string, err error) {
 	return
 }
 
-func pgInit() {
+func parseConnect() error {
 	username, password, err := parsePgSecrets()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	poorboxdb.Connect(username, password, pgEndpoint)
+	err = pdb.Connect(username, password, pgEndpoint, pdb.SSL_DISABLE)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -32,8 +32,8 @@ type Genre struct {
 // will cause slugs to be calculated differently, and
 // possibly break stuff
 type Movie struct {
-	TmdbId             int     `json: "id"`
-	ImdbId             string  `json: "imdb_id`
+	TmdbId             int     `json: "id",sql: "tmdb_id"`
+	ImdbId             string  `json: "imdb_id,sql`
 	Genres             []Genre `json: "genres"`
 	TmdbPosterPath     string  `json: "poster_path"`
 	TmdbBackgroundPath string  `json: "backdrop_path"`
@@ -47,6 +47,7 @@ type Movie struct {
 	// however we actually want this to come from the initial query, so we
 	// give it a bettor (read: different) name.
 	Description        string
+	Path               string
 }
 
 
@@ -55,6 +56,9 @@ func (m *Movie) GiveSlug(allowOverwrite bool) error {
 	if !allowOverwrite && m.Slug != "" {
 		return errors.New("Attempted to overwrite existing slug")
 	}
+	pathProxy := m.Path
+	m.Path = ""
+	defer func() { m.Path = pathProxy }()
 	hash := md5.Sum([]byte(fmt.Sprintf("%v", *m)))
 	shortTitle := strings.Map(func(rr rune) rune {
 		if unicode.IsSpace(rr) {
