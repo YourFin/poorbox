@@ -73,6 +73,18 @@ func InitTables() error {
 	if err != nil {
 		return err
 	}
+	_, err = db.Exec(`CREATE TABLE movie_genre_join (
+	genre_id   int  REFERENCES genres(id)
+									ON UPDATE CASCADE
+									ON DELETE CASCADE,
+	movie_slug text REFERENCES movies(slug)
+									ON UPDATE CASCADE
+									ON DELETE CASCADE,
+	PRIMARY KEY (genre_id, movie_slug)
+);`)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
