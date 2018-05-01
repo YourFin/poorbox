@@ -1,9 +1,13 @@
 #!/bin/ruby
+require 'open3'
 
-
+filename = ARGV[0]
+filename_no_ext = filename.gsub(/\.[a-zA-Z0-9]+$/, '')
+out_name = filename_no_ext + ".webm"
 
 # get stream data:
-raw_stream_data = `ffprobe -i #{ARGV[0]} -show_streams`
+# see http://web.archive.org/web/20180501034714/http://blog.honeybadger.io/capturing-stdout-stderr-from-shell-commands-via-ruby/
+raw_stream_data, _, status = Open3.capture3("ffprobe -i #{filename} -show_streams")
 ## Dump ffmpeg output:
 #print "\n\n"
 #
@@ -11,10 +15,9 @@ raw_stream_data = `ffprobe -i #{ARGV[0]} -show_streams`
 #
 #print "\n\n"
 
+# Parse stream data into a map
 counter = -1
 streams = []
-
-# Parse stream data into a map
 for line in raw_stream_data.split("\n")
   if line == '[STREAM]' then
     counter += 1
@@ -25,6 +28,7 @@ for line in raw_stream_data.split("\n")
   end 
 end
 
+# Parse maps
 used_streams = []
 for stream in streams
   index = stream["index"].to_i
@@ -46,7 +50,6 @@ for stream in streams
     used_streams[index] = {:type => :sub}
     # Dump any other crap in the container file
   end
-  puts stream["index"] + " " + stream["codec_type"]
 end
 
 puts "kept streams: #{used_streams}"
@@ -57,8 +60,8 @@ puts "kept streams: #{used_streams}"
 
 #Example 2:
 #ffmpeg -y -i $1 -c:v libvpx-vp9 -pass 1 -b:v 1000K -threads 8 -speed 4 \
-	  #-tile-columns 6 -frame-parallel 1 \
-	    #-an -f webm /dev/null
+#-tile-columns 6 -frame-parallel 1 \
+#-an -f webm /dev/null
 #ffmpeg -i $1 -c:v libvpx-vp9 -pass 2 -b:v 2M -threads 8 -speed 1 \
 #		    -tile-columns 6 -frame-parallel 1 -auto-alt-ref 1 \
 #		    -c:a libopus -f webm \
