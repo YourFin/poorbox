@@ -43,8 +43,13 @@ for stream in streams
     # quite needed even for english, see "Snowpiercer",
     # so we're not going to attempt to pick and
     # choose audio tracks
-    used_streams[index] = {:type => :audio,
-                           :channels => stream["channels"].to_i }
+    if streams.select { |elem| elem["TAG:language"] == stream["TAG:language"] }.
+         map { |elem| elem["channels"].to_i }.max > stream["channels"].to_i then
+    else 
+      used_streams[index] = {:type => :audio,
+                             :channels => stream["channels"].to_i,
+                             :lang => stream["TAG:language"]}
+    end
   when "subtitle"
     #subtitles are tiny and should all be kept
     used_streams[index] = {:type => :sub}
@@ -53,6 +58,35 @@ for stream in streams
 end
 
 puts "kept streams: #{used_streams}"
+
+# Build up ffmpeg commands
+# http://web.archive.org/web/20180501174740/https://trac.ffmpeg.org/wiki/Map
+maps = ""
+copies = []
+videoNum = -1
+audioNum = -1
+subNum   = -1
+used_streams.each_with_index do |stream, ii| 
+  maps += " -map 0:#{ii}"
+  case stream[:type]
+  when :video
+    videoNum += 1
+    copies.push "-c:v:#{videoNum} libvpx-vp9"
+  when :audio
+    audioNum += 1
+    copies.push "-c:a:#{audioNum} libopus -filter:a:#{audioNum} loudnorm"
+    if stream[:channels] > 2
+      audioNum += 1
+      maps += " -map 0:#{ii}"
+      copies.push "-c:a:#{audioNum} libopus -ac:a:#{audioNum} 2 -filter:a:#{audioNum} loudnorm"
+    end
+  when :sub
+    subNum += 1
+    copies.push "-c:s:#{subNum} webvtt"
+  end
+end
+
+puts "ffmpeg -y -i '#{filename}' -pass 1 -f webm -af aformat=channel_layouts=\"7.1|5.1|stereo\"#{maps} #{copies.join(" ")} /dev/null"
 
 #Example 1:
 #ffmpeg -i $1 -c:v libvpx-vp9 -b:v 2M -pass 1 -c:a libopus -f webm /dev/null && \
