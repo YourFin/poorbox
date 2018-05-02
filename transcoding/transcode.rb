@@ -68,7 +68,7 @@ audioNum = -1
 subNum   = -1
 
 def audioDefaultOptions(anum)
-  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\"" 
+  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k" 
 end
 
 used_streams.each_with_index do |stream, ii| 
@@ -76,7 +76,7 @@ used_streams.each_with_index do |stream, ii|
   case stream[:type]
   when :video
     videoNum += 1
-    copies.push "-c:v:#{videoNum} libvpx-vp9"
+    copies.push "-c:v:#{videoNum} libvpx-vp9 -threads 8 -speed 4 -b:v:#{videoNum} 1000k"
   when :audio
     if stream[:channels] > 2
       audioNum += 1
