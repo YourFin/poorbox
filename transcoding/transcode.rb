@@ -66,6 +66,11 @@ copies = []
 videoNum = -1
 audioNum = -1
 subNum   = -1
+
+def audioDefaultOptions(anum)
+  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\"" 
+end
+
 used_streams.each_with_index do |stream, ii| 
   maps += " -map 0:#{ii}"
   case stream[:type]
@@ -73,21 +78,24 @@ used_streams.each_with_index do |stream, ii|
     videoNum += 1
     copies.push "-c:v:#{videoNum} libvpx-vp9"
   when :audio
-    audioNum += 1
-    copies.push "-c:a:#{audioNum} libopus -filter:a:#{audioNum} loudnorm"
     if stream[:channels] > 2
       audioNum += 1
       maps += " -map 0:#{ii}"
-      copies.push "-c:a:#{audioNum} libopus -ac:a:#{audioNum} 2 -filter:a:#{audioNum} loudnorm"
+      copies.push audioDefaultOptions(audioNum) + " -ac:a:#{audioNum} 2"
     end
+    audioNum += 1
+    copies.push audioDefaultOptions(audioNum)
   when :sub
     subNum += 1
     copies.push "-c:s:#{subNum} webvtt"
   end
 end
 
-puts "ffmpeg -y -i '#{filename}' -pass 1 -f webm -af aformat=channel_layouts=\"7.1|5.1|stereo\"#{maps} #{copies.join(" ")} /dev/null"
+FFMPEG_OPTIONS = "-i '#{filename}' -f webm"
 
+puts "ffmpeg #{FFMPEG_OPTIONS} -y -pass 1 #{maps} #{copies.join(" ")} /dev/null"
+puts "\n"
+puts "ffmpeg #{FFMPEG_OPTIONS} -pass 2 #{maps} #{copies.join(" ")} #{out_name}"
 #Example 1:
 #ffmpeg -i $1 -c:v libvpx-vp9 -b:v 2M -pass 1 -c:a libopus -f webm /dev/null && \
 #    ffmpeg -i $1 -c:v libvpx-vp9 -b:v 2M -pass 2 -c:a libopus $(echo $1 | sed -E 's/\.[a-zA-Z0-9]+$//').webm
