@@ -5,6 +5,17 @@ filename = ARGV[0]
 filename_no_ext = filename.gsub(/\.[a-zA-Z0-9]+$/, '')
 out_name = filename_no_ext + ".webm"
 
+ARGV.shift
+
+dry_run = false
+cuda = false
+if ARGV.include?( "--dry-run") || ARGV.include?("-d")
+  dry_run = true
+end
+if ARGV.include?( "--cuda") || ARGV.include?("-c")
+  cuda = true
+end
+
 # get stream data:
 # see http://web.archive.org/web/20180501034714/http://blog.honeybadger.io/capturing-stdout-stderr-from-shell-commands-via-ruby/
 raw_stream_data, _, status = Open3.capture3("ffprobe -i #{filename} -show_streams")
@@ -61,8 +72,10 @@ puts "kept streams: #{used_streams}"
 
 # Build up ffmpeg commands
 # http://web.archive.org/web/20180501174740/https://trac.ffmpeg.org/wiki/Map
-maps = ""
-copies = []
+maps_1 = ""
+copies_1 = []
+maps_2 = ""
+copies_2 = []
 videoNum = -1
 audioNum = -1
 subNum   = -1
@@ -71,31 +84,60 @@ def audioDefaultOptions(anum)
   "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k" 
 end
 
+if cuda
+  video_codec = "vp9_cuvid"
+else
+  video_codec = "libvpx-vp9"
+end
+
 used_streams.each_with_index do |stream, ii| 
-  maps += " -map 0:#{ii}"
+  maps_2 += " -map 0:#{ii}"
   case stream[:type]
   when :video
     videoNum += 1
-    copies.push "-c:v:#{videoNum} libvpx-vp9 -threads 8 -speed 4 -b:v:#{videoNum} 1000k"
+    maps_1 += " -map 0:#{ii}"
+    short = "-c:v:#{videoNum} #{video_codec} -threads 8 -speed 4 -b:v:#{videoNum} 1000k"
+    copies_1.push short
+    copies_2.push short + " auto-alt-ref 1 -lag-in-frames 25"
   when :audio
     if stream[:channels] > 2
       audioNum += 1
-      maps += " -map 0:#{ii}"
-      copies.push audioDefaultOptions(audioNum) + " -ac:a:#{audioNum} 2"
+      maps_2 += " -map 0:#{ii}"
+      copies_2.push audioDefaultOptions(audioNum) + " -ac:a:#{audioNum} 2"
     end
     audioNum += 1
-    copies.push audioDefaultOptions(audioNum)
+    copies_2.push audioDefaultOptions(audioNum)
   when :sub
     subNum += 1
-    copies.push "-c:s:#{subNum} webvtt"
+    copies_2.push "-c:s:#{subNum} webvtt"
   end
 end
 
 FFMPEG_OPTIONS = "-i '#{filename}' -f webm"
 
-puts "ffmpeg #{FFMPEG_OPTIONS} -y -pass 1 #{maps} #{copies.join(" ")} /dev/null"
-puts "\n"
-puts "ffmpeg #{FFMPEG_OPTIONS} -pass 2 #{maps} #{copies.join(" ")} #{out_name}"
+if cuda
+  FFMPEG_OPTIONS += " -hwaccel cuvid "
+end
+
+command1 = "ffmpeg #{FFMPEG_OPTIONS} -y -pass 1 #{maps_1} #{copies_1.join(" ")} /dev/null"
+command2 = "ffmpeg #{FFMPEG_OPTIONS} -pass 2 #{maps_2} #{copies_2.join(" ")} #{out_name}"
+
+if dry_run
+  puts command1
+  puts "\n"
+  puts command2
+else
+  if not system(command1)
+    puts "First pass failed"
+    exit 1
+  elsif not system(command2)
+    puts "Second pass failed"
+    exit 1
+  else
+    puts "Transcode successful"
+    exit 0
+  end
+end
 #Example 1:
 #ffmpeg -i $1 -c:v libvpx-vp9 -b:v 2M -pass 1 -c:a libopus -f webm /dev/null && \
 #    ffmpeg -i $1 -c:v libvpx-vp9 -b:v 2M -pass 2 -c:a libopus $(echo $1 | sed -E 's/\.[a-zA-Z0-9]+$//').webm
