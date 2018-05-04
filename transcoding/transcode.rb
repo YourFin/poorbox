@@ -80,8 +80,8 @@ videoNum = -1
 audioNum = -1
 subNum   = -1
 
-def audioDefaultOptions(anum)
-  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k" 
+def audioDefaultOptions(anum, index)
+  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k -map_metadata:s:a:#{anum} 0:i:#{index}" 
 end
 
 VIDEO_CODEC = "libvpx-vp9"
@@ -99,10 +99,10 @@ used_streams.each_with_index do |stream, ii|
     if stream[:channels] > 2
       audioNum += 1
       maps_2 += " -map 0:#{ii}"
-      copies_2.push audioDefaultOptions(audioNum) + " -ac:a:#{audioNum} 2"
+      copies_2.push audioDefaultOptions(audioNum, ii) + " -ac:a:#{audioNum} 2"
     end
     audioNum += 1
-    copies_2.push audioDefaultOptions(audioNum)
+    copies_2.push audioDefaultOptions(audioNum, ii)
   when :sub
     subNum += 1
     copies_2.push "-c:s:#{subNum} webvtt"
