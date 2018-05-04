@@ -9,11 +9,15 @@ ARGV.shift
 
 dry_run = false
 cuda = false
+one_pass = false
 if ARGV.include?( "--dry-run") || ARGV.include?("-d")
   dry_run = true
 end
 if ARGV.include?( "--cuda") || ARGV.include?("-c")
   cuda = true
+end
+if ARGV.include?("-1")
+  one_pass = true
 end
 
 # get stream data:
@@ -41,6 +45,9 @@ end
 
 # Parse maps
 used_streams = []
+videoNum = -1
+audioNum = -1
+subNum   = -1
 for stream in streams
   index = stream["index"].to_i
   if index == nil then
@@ -48,22 +55,29 @@ for stream in streams
   end
   case stream["codec_type"]
   when "video"
-    used_streams[index] = {:type => :video}
+    videoNum += 1
+    used_streams[index] = {:type => :video,
+                           :vindex => videoNum}
   when "audio"
     # some movies have weird sub tracks that are
     # quite needed even for english, see "Snowpiercer",
     # so we're not going to attempt to pick and
     # choose audio tracks
+    audioNum += 1
     if streams.select { |elem| elem["TAG:language"] == stream["TAG:language"] }.
          map { |elem| elem["channels"].to_i }.max > stream["channels"].to_i then
+    # ignore it
     else 
       used_streams[index] = {:type => :audio,
                              :channels => stream["channels"].to_i,
-                             :lang => stream["TAG:language"]}
+                             :lang => stream["TAG:language"],
+                             :aindex => audioNum}
     end
   when "subtitle"
+    subNum += 1
     #subtitles are tiny and should all be kept
-    used_streams[index] = {:type => :sub}
+    used_streams[index] = {:type => :sub,
+                           :sindex => subNum}
     # Dump any other crap in the container file
   end
 end
@@ -81,7 +95,7 @@ audioNum = -1
 subNum   = -1
 
 def audioDefaultOptions(anum, index)
-  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k -map_metadata:s:a:#{anum} 0:i:#{index}" 
+  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k -map_metadata:s:a:#{anum} 0:s:a:#{index}" 
 end
 
 VIDEO_CODEC = "libvpx-vp9"
@@ -94,19 +108,19 @@ used_streams.each_with_index do |stream, ii|
     maps_1 += " -map 0:#{ii}"
     short = "-c:v:#{videoNum} #{VIDEO_CODEC} -threads 8 -speed 4 -b:v:#{videoNum} 1000k"
     copies_1.push short
-    copies_2.push short + " auto-alt-ref 1 -lag-in-frames 25"
+    copies_2.push short + " -auto-alt-ref 1 -lag-in-frames 25"
   when :audio
     if stream[:channels] > 2
       audioNum += 1
       maps_2 += " -map 0:#{ii}"
-      copies_2.push audioDefaultOptions(audioNum, ii) + " -ac:a:#{audioNum} 2"
+      copies_2.push audioDefaultOptions(audioNum, stream[:aindex]) + " -ac:a:#{audioNum} 2"
     end
     audioNum += 1
-    copies_2.push audioDefaultOptions(audioNum, ii)
+    copies_2.push audioDefaultOptions(audioNum, stream[:aindex])
   when :sub
     subNum += 1
     copies_2.push "-c:s:#{subNum} webvtt"
-  end
+                                      end
 end
 
 FFMPEG_OPTIONS = "-i '#{filename}' -f webm"
@@ -115,15 +129,23 @@ if cuda
   FFMPEG_OPTIONS = " -hwaccel cuvid " + FFMPEG_OPTIONS
 end
 
+if ! one_pass
+  pass2 = "-pass 2"
+else
+  pass2 = ""
+end
+
 command1 = "ffmpeg #{FFMPEG_OPTIONS} -y -pass 1 #{maps_1} #{copies_1.join(" ")} /dev/null"
-command2 = "ffmpeg #{FFMPEG_OPTIONS} -pass 2 #{maps_2} #{copies_2.join(" ")} #{out_name}"
+command2 = "ffmpeg #{FFMPEG_OPTIONS} #{pass2} #{maps_2} #{copies_2.join(" ")} '#{out_name}'"
 
 if dry_run
-  puts command1
+  if not one_pass
+    puts command1
+  end
   puts "\n"
   puts command2
 else
-  if not system(command1)
+  if not one_pass and not system(command1)
     puts "First pass failed"
     exit 1
   elsif not system(command2)
