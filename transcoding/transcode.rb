@@ -84,11 +84,7 @@ def audioDefaultOptions(anum)
   "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k" 
 end
 
-if cuda
-  video_codec = "vp9_cuvid"
-else
-  video_codec = "libvpx-vp9"
-end
+VIDEO_CODEC = "libvpx-vp9"
 
 used_streams.each_with_index do |stream, ii| 
   maps_2 += " -map 0:#{ii}"
@@ -96,7 +92,7 @@ used_streams.each_with_index do |stream, ii|
   when :video
     videoNum += 1
     maps_1 += " -map 0:#{ii}"
-    short = "-c:v:#{videoNum} #{video_codec} -threads 8 -speed 4 -b:v:#{videoNum} 1000k"
+    short = "-c:v:#{videoNum} #{VIDEO_CODEC} -threads 8 -speed 4 -b:v:#{videoNum} 1000k"
     copies_1.push short
     copies_2.push short + " auto-alt-ref 1 -lag-in-frames 25"
   when :audio
@@ -116,7 +112,7 @@ end
 FFMPEG_OPTIONS = "-i '#{filename}' -f webm"
 
 if cuda
-  FFMPEG_OPTIONS += " -hwaccel cuvid "
+  FFMPEG_OPTIONS = " -hwaccel cuvid " + FFMPEG_OPTIONS
 end
 
 command1 = "ffmpeg #{FFMPEG_OPTIONS} -y -pass 1 #{maps_1} #{copies_1.join(" ")} /dev/null"
