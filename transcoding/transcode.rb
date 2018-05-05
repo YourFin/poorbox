@@ -10,6 +10,7 @@ ARGV.shift
 dry_run = false
 cuda = false
 one_pass = false
+banner = true
 if ARGV.include?( "--dry-run") || ARGV.include?("-d")
   dry_run = true
 end
@@ -18,6 +19,9 @@ if ARGV.include?( "--cuda") || ARGV.include?("-c")
 end
 if ARGV.include?("-1")
   one_pass = true
+end
+if ARGV.include?("-nb") || ARGV.include?("--no-banner")
+  banner = false
 end
 
 # get stream data:
@@ -77,9 +81,14 @@ for stream in streams
     end
   when "subtitle"
     subNum += 1
-    #subtitles are tiny and should all be kept
-    used_streams[index] = {:type => :sub,
-                           :sindex => subNum}
+    # Make sure that the subtitles can actually be converted
+    # See this bull for why: http://web.archive.org/web/20180505045227/https://stackoverflow.com/questions/36326790/cant-change-video-subtitles-codec-using-ffmpeg
+    checkcmd = "timeout 0.5 ffmpeg -hide-banner -i '#{filename}' -y -map 0:#{index} -c:s:0 webvtt -f webvtt /dev/null"
+    _, _, status = Open3.capture3(checkcmd)
+    if status.exitstatus == 0
+      used_streams[index] = {:type => :sub,
+                             :sindex => subNum}
+    end
     # Dump any other crap in the container file
   end
 end
@@ -117,11 +126,11 @@ def audioDefaultOptions(anum, stream, forceStereo)
   else
     title = "#{stream[:title]}: #{aProfile}"
   end
-  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k -metadata:s:a:#{anum} title=\"#{title}\"" 
+  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k -metadata:s:a:#{anum} title='#{title}'" 
 end
 
-VIDEO_CODEC = "libvpx-vp9"
 
+VIDEO_CODEC = "libvpx-vp9"
 used_streams.each_with_index do |stream, ii| 
   maps_2 += " -map 0:#{ii}"
   case stream[:type]
@@ -142,13 +151,15 @@ used_streams.each_with_index do |stream, ii|
   when :sub
     subNum += 1
     copies_2.push "-c:s:#{subNum} webvtt"
-                                      end
+  end
 end
 
 FFMPEG_OPTIONS = "-i '#{filename}' -f webm"
-
 if cuda
   FFMPEG_OPTIONS = " -hwaccel cuvid " + FFMPEG_OPTIONS
+end
+if not banner
+  FFMPEG_OPTIONS = " -hide-banner " + FFMPEG_OPTIONS
 end
 
 if ! one_pass
