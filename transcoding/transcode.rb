@@ -22,7 +22,7 @@ end
 
 # get stream data:
 # see http://web.archive.org/web/20180501034714/http://blog.honeybadger.io/capturing-stdout-stderr-from-shell-commands-via-ruby/
-raw_stream_data, _, status = Open3.capture3("ffprobe -i #{filename} -show_streams")
+raw_stream_data, _, status = Open3.capture3("ffprobe -i '#{filename}' -show_streams")
 ## Dump ffmpeg output:
 #print "\n\n"
 #
@@ -34,10 +34,10 @@ raw_stream_data, _, status = Open3.capture3("ffprobe -i #{filename} -show_stream
 counter = -1
 streams = []
 for line in raw_stream_data.split("\n")
-  if line == '[STREAM]' then
+  if line.strip == '[STREAM]' then
     counter += 1
     streams[counter] = {}
-  elsif line != '[\STREAM]'
+  elsif line.strip != '[\STREAM]'
     sp = line.split("=", 2)
     streams[counter][sp[0]] = sp[1]
   end 
@@ -64,13 +64,15 @@ for stream in streams
     # so we're not going to attempt to pick and
     # choose audio tracks
     audioNum += 1
-    if streams.select { |elem| elem["TAG:language"] == stream["TAG:language"] }.
-         map { |elem| elem["channels"].to_i }.max > stream["channels"].to_i then
+    if streams.select { |elem| elem["TAG:language"] == stream["TAG:language"] and
+                        elem["TAG:title"] == stream["TAG:title"]}
+         .map { |elem| elem["channels"].to_i }.max > stream["channels"].to_i then
     # ignore it
     else 
       used_streams[index] = {:type => :audio,
                              :channels => stream["channels"].to_i,
                              :lang => stream["TAG:language"],
+                             :title => stream["TAG:title"],
                              :aindex => audioNum}
     end
   when "subtitle"
@@ -94,8 +96,28 @@ videoNum = -1
 audioNum = -1
 subNum   = -1
 
-def audioDefaultOptions(anum, index)
-  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k -map_metadata:s:a:#{anum} 0:s:a:#{index}" 
+def audioDefaultOptions(anum, stream, forceStereo)
+  case stream[:channels]
+  when 2
+    aProfile = "stereo"
+  when 3
+    aProfile = "2.1 channel"
+  when 6
+    aProfile = "5.1 channel"
+  when 8
+    aProfile = "7.1 channel"
+  else
+    aProfile = "#{stream[:channels]} channel"
+  end
+  if forceStereo
+    aProfile = "stereo"
+  end
+  if stream[:title].nil?
+    title = aProfile
+  else
+    title = "#{stream[:title]}: #{aProfile}"
+  end
+  "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k -metadata:s:a:#{anum} title=\"#{title}\"" 
 end
 
 VIDEO_CODEC = "libvpx-vp9"
@@ -113,10 +135,10 @@ used_streams.each_with_index do |stream, ii|
     if stream[:channels] > 2
       audioNum += 1
       maps_2 += " -map 0:#{ii}"
-      copies_2.push audioDefaultOptions(audioNum, stream[:aindex]) + " -ac:a:#{audioNum} 2"
+      copies_2.push audioDefaultOptions(audioNum, stream, true) + " -ac:a:#{audioNum} 2"
     end
     audioNum += 1
-    copies_2.push audioDefaultOptions(audioNum, stream[:aindex])
+    copies_2.push audioDefaultOptions(audioNum, stream, false)
   when :sub
     subNum += 1
     copies_2.push "-c:s:#{subNum} webvtt"
