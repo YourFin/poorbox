@@ -129,7 +129,6 @@ def audioDefaultOptions(anum, stream, forceStereo)
   "-c:a:#{anum} libopus -filter:a:#{anum} loudnorm -af:a:#{anum} aformat=channel_layouts=\"7.1|5.1|stereo\" -b:a:#{anum} 64k -metadata:s:a:#{anum} title='#{title}'" 
 end
 
-
 VIDEO_CODEC = "libvpx-vp9"
 used_streams.each_with_index do |stream, ii| 
   maps_2 += " -map 0:#{ii}"
