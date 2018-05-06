@@ -3,7 +3,7 @@ require 'open3'
 
 filename = ARGV[0]
 filename_no_ext = filename.gsub(/\.[a-zA-Z0-9]+$/, '')
-out_name = filename_no_ext + ".webm"
+out_name = filename + ".webm"
 
 ARGV.shift
 
@@ -136,7 +136,7 @@ used_streams.each_with_index do |stream, ii|
   when :video
     videoNum += 1
     maps_1 += " -map 0:#{ii}"
-    short = "-c:v:#{videoNum} #{VIDEO_CODEC} -threads 8 -speed 4 -b:v:#{videoNum} 1000k"
+    short = "-c:v:#{videoNum} #{VIDEO_CODEC} -threads 8 -speed 4"
     copies_1.push short
     copies_2.push short + " -auto-alt-ref 1 -lag-in-frames 25"
   when :audio
