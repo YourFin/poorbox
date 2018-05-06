@@ -138,7 +138,7 @@ used_streams.each_with_index do |stream, ii|
     maps_1 += " -map 0:#{ii}"
     short = "-c:v:#{videoNum} #{VIDEO_CODEC} -crf:v:#{videoNum} 20 -pix_fmt:v:#{videoNum} yuv420p -threads 8 -b:v:#{videoNum} 0 "
     copies_1.push short + "-speed 4"
-    copies_2.push short + "-speed 1 -auto-alt-ref 1 -lag-in-frames 25"
+    copies_2.push short + "-speed 3 -auto-alt-ref 1 -lag-in-frames 25"
   when :audio
     if stream[:channels] > 2
       audioNum += 1
