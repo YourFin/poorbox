@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 require 'open3'
 
+FFMPEG = "ffmpeg"
+
 filename = ARGV[0]
 filename_no_ext = filename.gsub(/\.[a-zA-Z0-9]+$/, '')
 out_name = filename + ".webm"
@@ -83,7 +85,7 @@ for stream in streams
     subNum += 1
     # Make sure that the subtitles can actually be converted
     # See this bull for why: http://web.archive.org/web/20180505045227/https://stackoverflow.com/questions/36326790/cant-change-video-subtitles-codec-using-ffmpeg
-    checkcmd = "timeout 0.5 ffmpeg -hide-banner -i '#{filename}' -y -map 0:#{index} -c:s:0 webvtt -f webvtt /dev/null"
+    checkcmd = "timeout 0.5 #{FFMPEG} -hide-banner -i '#{filename}' -y -map 0:#{index} -c:s:0 webvtt -f webvtt /dev/null"
     _, _, status = Open3.capture3(checkcmd)
     if status.exitstatus == 0
       used_streams[index] = {:type => :sub,
@@ -167,8 +169,8 @@ else
   pass2 = ""
 end
 
-command1 = "ffmpeg #{FFMPEG_OPTIONS} -y -pass 1 #{maps_1} #{copies_1.join(" ")} /dev/null"
-command2 = "ffmpeg #{FFMPEG_OPTIONS} #{pass2} #{maps_2} #{copies_2.join(" ")} '#{out_name}'"
+command1 = "#{FFMPEG} #{FFMPEG_OPTIONS} -y -pass 1 #{maps_1} #{copies_1.join(" ")} /dev/null"
+command2 = "#{FFMPEG} #{FFMPEG_OPTIONS} #{pass2} #{maps_2} #{copies_2.join(" ")} '#{out_name}'"
 
 if dry_run
   if not one_pass
