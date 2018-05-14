@@ -89,7 +89,9 @@ for stream in streams
     _, _, status = Open3.capture3(checkcmd)
     if status.exitstatus == 0
       used_streams[index] = {:type => :sub,
-                             :sindex => subNum}
+                             :sindex => subNum,
+                             :lang => stream["TAG:language"],
+                             :title => stream["TAG:title"] }
     end
     # Dump any other crap in the container file
   end
@@ -151,7 +153,7 @@ used_streams.each_with_index do |stream, ii|
     copies_2.push audioDefaultOptions(audioNum, stream, false)
   when :sub
     subNum += 1
-    copies_2.push "-c:s:#{subNum} webvtt"
+    copies_2.push "-c:s:#{subNum} webvtt -metadata:s:a:#{subNum} title='#{stream[:title]}'"
   end
 end
 
