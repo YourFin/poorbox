@@ -85,7 +85,7 @@ for stream in streams
     subNum += 1
     # Make sure that the subtitles can actually be converted
     # See this bull for why: http://web.archive.org/web/20180505045227/https://stackoverflow.com/questions/36326790/cant-change-video-subtitles-codec-using-ffmpeg
-    checkcmd = "timeout 0.5 #{FFMPEG} -hide-banner -i '#{filename}' -y -map 0:#{index} -c:s:0 webvtt -f webvtt /dev/null"
+    checkcmd = "timeout 0.5 #{FFMPEG} -hide_banner -i '#{filename}' -y -map 0:#{index} -c:s:0 webvtt -f webvtt /dev/null"
     _, _, status = Open3.capture3(checkcmd)
     if status.exitstatus == 0
       used_streams[index] = {:type => :sub,
@@ -160,7 +160,7 @@ if cuda
   FFMPEG_OPTIONS = " -hwaccel cuvid " + FFMPEG_OPTIONS
 end
 if not banner
-  FFMPEG_OPTIONS = " -hide-banner " + FFMPEG_OPTIONS
+  FFMPEG_OPTIONS = " -hide_banner " + FFMPEG_OPTIONS
 end
 
 if ! one_pass
